@@ -1,13 +1,14 @@
 .PHONY: all clean install uninstall debug man compose test-harness
 VERSION=2.5.0
-COMMIT=$(shell git describe --no-match --always --abbrev=7 --dirty)
+COMMIT=
 VKBD=uinput
 PREFIX?=/usr/local
 
 CONFIG_DIR?=/etc/keyd
 SOCKET_PATH=/var/run/keyd.socket
 
-CFLAGS:=-DVERSION=\"v$(VERSION)\ \($(COMMIT)\)\" \
+CFLAGS:=-DVERSION=\"v$(VERSION)\" \
+	-Wno-unused-result \
 	-I/usr/local/include \
 	-L/usr/local/lib \
 	-Wall \
@@ -17,7 +18,6 @@ CFLAGS:=-DVERSION=\"v$(VERSION)\ \($(COMMIT)\)\" \
 	-DSOCKET_PATH=\"$(SOCKET_PATH)\" \
 	-DCONFIG_DIR=\"$(CONFIG_DIR)\" \
 	-DDATA_DIR=\"$(PREFIX)/share/keyd\" \
-	-D_FORTIFY_SOURCE=2 \
 	-D_DEFAULT_SOURCE \
 	-Werror=format-security \
 	$(CFLAGS)
@@ -48,12 +48,18 @@ man:
 	done
 install:
 
+	@if [ -e /run/openrc ]; then \
+			install -Dm644 keyd.openrc.in $(DESTDIR)/etc/init.d/keyd; \
+		else \
+			echo "NOTE: openrc not found."; \
+	fi
+	
 	@if [ -e /run/systemd/system ]; then \
-		sed -e 's#@PREFIX@#$(PREFIX)#' keyd.service.in > keyd.service; \
+		sed -e 's#@PREFIX@#$(PREFIX)#' keyd.systemd.in > keyd.service; \
 		mkdir -p $(DESTDIR)$(PREFIX)/lib/systemd/system/; \
 		install -Dm644 keyd.service $(DESTDIR)$(PREFIX)/lib/systemd/system/keyd.service; \
 	else \
-		echo "NOTE: systemd not found, you will need to manually add keyd to your system's init process."; \
+		echo "NOTE: systemd not found."; \
 	fi
 
 	@if [ "$(VKBD)" = "usb-gadget" ]; then \
@@ -64,10 +70,8 @@ install:
 
 	mkdir -p $(DESTDIR)$(CONFIG_DIR)
 	mkdir -p $(DESTDIR)$(PREFIX)/bin/
-	mkdir -p $(DESTDIR)$(PREFIX)/share/keyd/
 	mkdir -p $(DESTDIR)$(PREFIX)/share/keyd/layouts/
 	mkdir -p $(DESTDIR)$(PREFIX)/share/man/man1/
-	mkdir -p $(DESTDIR)$(PREFIX)/share/doc/keyd/
 	mkdir -p $(DESTDIR)$(PREFIX)/share/doc/keyd/examples/
 
 	-groupadd keyd
@@ -82,6 +86,7 @@ install:
 uninstall:
 	-groupdel keyd
 	rm -rf $(DESTDIR)$(PREFIX)/lib/systemd/system/keyd.service \
+		$(DESTDIR)/etc/init.d/keyd \
 		$(DESTDIR)$(PREFIX)/bin/keyd \
 		$(DESTDIR)$(PREFIX)/bin/keyd-application-mapper \
 		$(DESTDIR)$(PREFIX)/share/doc/keyd/ \
