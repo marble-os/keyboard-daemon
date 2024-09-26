@@ -50,6 +50,7 @@ install:
 
 	@if [ -e /run/openrc ]; then \
 			install -Dm644 keyd.openrc.in $(DESTDIR)/etc/init.d/keyd; \
+			chmod +x $(DESTDIR)/etc/init.d/keyd; \
 		else \
 			echo "NOTE: openrc not found."; \
 	fi
